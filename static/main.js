@@ -10,30 +10,29 @@ document.addEventListener('DOMContentLoaded', () => {
 	let manualInitMode = false;
 	let manualCentroidCount = 0;
 
-	// Listener for initialization method
-	initMethodSelect.addEventListener('change', () => {
-		const initMethod = initMethodSelect.value;
+	initMethodSelect.addEventListener('change', handleInitMethodChange);
+	document.getElementById('new-dataset').addEventListener('click', handleNewDataset);
+	document.getElementById('step').addEventListener('click', handleStep);
+	document.getElementById('converge').addEventListener('click', handleConverge);
+	document.getElementById('reset').addEventListener('click', handleReset);
+	plotArea.addEventListener('click', handlePlotAreaClick);
 
-		// If "Manual" is selected, activate manual mode
+	function handleInitMethodChange() {
+		const initMethod = initMethodSelect.value;
 		if (initMethod === 'manual') {
-			manualInitMode = true;
-			manualCentroidCount = 0;
-			alert('Click on the plot area to select centroids');
+			activateManualMode();
 		} else {
 			manualInitMode = false;
 		}
-	});
+	}
 
-	// Listeners for the buttons
-	document.getElementById('new-dataset').addEventListener('click', () => {
+	function handleNewDataset() {
 		dataset = generateRandomDataset();
-		centroids = [];
-		assignments = [];
-		manualInitMode = false;
-		manualCentroidCount = 0;
+		resetState();
 		drawPlot();
-	});
-	document.getElementById('step').addEventListener('click', () => {
+	}
+
+	function handleStep() {
 		if (centroids.length === 0) {
 			initializeCentroids();
 		} else {
@@ -41,8 +40,9 @@ document.addEventListener('DOMContentLoaded', () => {
 			updateCentroids();
 		}
 		drawPlot();
-	});
-	document.getElementById('converge').addEventListener('click', () => {
+	}
+
+	function handleConverge() {
 		if (centroids.length === 0) {
 			initializeCentroids();
 		}
@@ -51,115 +51,126 @@ document.addEventListener('DOMContentLoaded', () => {
 			updateCentroids();
 		}
 		drawPlot();
-	});
-	document.getElementById('reset').addEventListener('click', () => {
+	}
+
+	function handleReset() {
+		resetState();
+		drawPlot();
+	}
+
+	function handlePlotAreaClick(event) {
+		if (manualInitMode) {
+			const k = parseInt(numClustersInput.value);
+			if (manualCentroidCount < k) {
+				addManualCentroid(event);
+				if (manualCentroidCount === k) {
+					manualInitMode = false;
+					alert('All centroids selected, now proceed with clustering');
+				}
+				drawPlot();
+			}
+		}
+	}
+
+	function activateManualMode() {
+		manualInitMode = true;
+		manualCentroidCount = 0;
+		alert('Click on the plot area to select centroids');
+	}
+
+	function resetState() {
 		centroids = [];
 		assignments = [];
 		manualInitMode = false;
 		manualCentroidCount = 0;
+	}
+
+	function addManualCentroid(event) {
+		const rect = plotArea.getBoundingClientRect();
+		const x = event.clientX - rect.left;
+		const y = event.clientY - rect.top;
+		centroids.push({ x: x, y: y });
+		manualCentroidCount++;
+	}
+
+	function initializeCentroids() {
+		const k = parseInt(numClustersInput.value);
+		const initMethod = initMethodSelect.value;
+
+		resetState();
+
+		if (initMethod === 'manual') {
+			activateManualMode();
+		} else if (initMethod === 'farthest') {
+			initializeFarthestFirst(k);
+		} else if (initMethod === 'random') {
+			initializeRandomCentroids(k);
+		} else if (initMethod === 'kmeans++') {
+			initializeKMeansPlusPlus(k);
+		}
+
 		drawPlot();
-	});
+	}
 
-	// Listen for clicks on the plot area for manual centroid initialization
-	plotArea.addEventListener('click', (event) => {
-		if (manualInitMode) {
-			const k = parseInt(numClustersInput.value);
-			if (manualCentroidCount < k) {
-				const rect = plotArea.getBoundingClientRect();
-				const x = event.clientX - rect.left;
-				const y = event.clientY - rect.top;
+	function initializeFarthestFirst(k) {
+		const firstCentroid = dataset[Math.floor(Math.random() * dataset.length)];
+		centroids.push({ ...firstCentroid });
 
-				centroids.push({ x: x, y: y });
-				manualCentroidCount++;
+		while (centroids.length < k) {
+			let farthestPoint = null;
+			let maxDistance = -Infinity;
 
-				if (manualCentroidCount === k) {
-					manualInitMode = false; 
-					alert('All centroids selected, now proceed with clustering');
+			dataset.forEach(point => {
+				const minDistanceToCentroid = centroids.reduce((minDist, centroid) => {
+					const distance = calculateDistance(point, centroid);
+					return Math.min(minDist, distance);
+				}, Infinity);
+
+				if (minDistanceToCentroid > maxDistance) {
+					maxDistance = minDistanceToCentroid;
+					farthestPoint = point;
 				}
+			});
 
-				drawPlot();
+			centroids.push({ ...farthestPoint });
+		}
+	}
+
+	function initializeRandomCentroids(k) {
+		for (let i = 0; i < k; i++) {
+			const randomPoint = dataset[Math.floor(Math.random() * dataset.length)];
+			centroids.push({ ...randomPoint });
+		}
+	}
+
+	function initializeKMeansPlusPlus(k) {
+		centroids.push(dataset[Math.floor(Math.random() * dataset.length)]);
+
+		while (centroids.length < k) {
+			const distances = dataset.map(point => {
+				const minDistance = centroids.reduce((minDist, centroid) => {
+					return Math.min(minDist, calculateDistance(point, centroid));
+				}, Infinity);
+				return minDistance;
+			});
+
+			const totalDistance = distances.reduce((sum, d) => sum + d, 0);
+			const randomValue = Math.random() * totalDistance;
+			let cumulativeDistance = 0;
+
+			for (let i = 0; i < dataset.length; i++) {
+				cumulativeDistance += distances[i];
+				if (cumulativeDistance >= randomValue) {
+					centroids.push({ ...dataset[i] });
+					break;
+				}
 			}
 		}
-	});
-
-	/*********************************************************************************************/
-	// Initialize Centroids based on the selected method
-	function initializeCentroids() {
-    const k = parseInt(numClustersInput.value);
-    centroids = [];
-
-    const initMethod = initMethodSelect.value;
-
-    if (initMethod === 'manual') {
-			manualInitMode = true;
-			manualCentroidCount = 0;
-			alert('Click on the plot area to select centroids');
-    } else if (initMethod === 'farthest') {
-			// Farthest First Initialization
-			// Pick the first random centroid
-			const firstCentroid = dataset[Math.floor(Math.random() * dataset.length)];
-			centroids.push({ ...firstCentroid });
-
-			// For each remaining centroid, find the farthest point from the nearest centroid
-			while (centroids.length < k) {
-				let farthestPoint = null;
-				let maxDistance = -Infinity;
-
-				dataset.forEach(point => {
-					// Find the distance to the nearest centroid for this point
-					const minDistanceToCentroid = centroids.reduce((minDistance, centroid) => {
-						const distance = Math.hypot(point.x - centroid.x, point.y - centroid.y);
-						return Math.min(minDistance, distance);
-					}, Infinity);
-
-					// If this point is farther than any previously found, update farthestPoint
-					if (minDistanceToCentroid > maxDistance) {
-						maxDistance = minDistanceToCentroid;
-						farthestPoint = point;
-					}
-				});
-
-				// Add the farthest point found as the next centroid
-				centroids.push({ ...farthestPoint });
-			}
-    } else if (initMethod === 'random') {
-			// Random Initialization
-			for (let i = 0; i < k; i++) {
-				const randomPoint = dataset[Math.floor(Math.random() * dataset.length)];
-				centroids.push({ ...randomPoint });
-			}
-    } else if (initMethod === 'kmeans++') {
-			// KMeans++ Initialization
-			centroids.push(dataset[Math.floor(Math.random() * dataset.length)]); // Add first random centroid
-			while (centroids.length < k) {
-				const distances = dataset.map(point => {
-					// Calculate the distance to the closest centroid
-					const minDistance = centroids.reduce((minDist, centroid) => {
-						const distance = Math.hypot(point.x - centroid.x, point.y - centroid.y);
-						return Math.min(minDist, distance);
-					}, Infinity);
-					return minDistance;
-				});
-
-				// Pick the next centroid probabilistically based on distance
-				const totalDistance = distances.reduce((sum, d) => sum + d, 0);
-				const randomValue = Math.random() * totalDistance;
-				let cumulativeDistance = 0;
-				for (let i = 0; i < dataset.length; i++) {
-					cumulativeDistance += distances[i];
-					if (cumulativeDistance >= randomValue) {
-						centroids.push({ ...dataset[i] });
-						break;
-					}
-				}
-      }
-    }
-    drawPlot();	
 	}
 
 	function generateRandomDataset() {
 		const data = [];
-		for (let i = 0; i < 300; i++) {
+		for (let i = 0; i < 500; i++) {
 			data.push({
 				x: Math.random() * plotArea.clientWidth - 1,
 				y: Math.random() * plotArea.clientHeight - 1
@@ -173,7 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			let closestIndex = 0;
 			let minDistance = Infinity;
 			centroids.forEach((centroid, index) => {
-				const distance = Math.hypot(point.x - centroid.x, point.y - centroid.y);
+				const distance = calculateDistance(point, centroid);
 				if (distance < minDistance) {
 					minDistance = distance;
 					closestIndex = index;
@@ -184,24 +195,49 @@ document.addEventListener('DOMContentLoaded', () => {
 	}
 
 	function updateCentroids() {
-		previousCentroids = centroids.map(centroid => ({ ...centroid }));
-		const k = centroids.length;
-		const sums = Array(k).fill(0).map(() => ({ x: 0, y: 0, count: 0 }));
-
+		// Store the current centroids as previous centroids
+		previousCentroids = copyCentroids(centroids);
+	
+		// Initialize an array to store the sum of points and counts per cluster
+		const centroidSums = initializeCentroidSums(centroids.length);
+	
+		// Sum up all points for each cluster
+		aggregateClusterPoints(centroidSums);
+	
+		// Calculate new centroids based on the average of points in each cluster
+		recalculateCentroids(centroidSums);
+	}
+	
+	// Creates a deep copy of the centroids array
+	function copyCentroids(centroids) {
+		return centroids.map(centroid => ({ ...centroid }));
+	}
+	
+	// Initializes an array to hold sums of x, y coordinates and point counts for each centroid
+	function initializeCentroidSums(k) {
+		return Array(k).fill(0).map(() => ({ x: 0, y: 0, count: 0 }));
+	}
+	
+	// Aggregates the sum of coordinates and counts for each cluster
+	function aggregateClusterPoints(centroidSums) {
 		dataset.forEach((point, index) => {
 			const cluster = assignments[index];
-			sums[cluster].x += point.x;
-			sums[cluster].y += point.y;
-			sums[cluster].count += 1;
+			centroidSums[cluster].x += point.x;
+			centroidSums[cluster].y += point.y;
+			centroidSums[cluster].count += 1;
 		});
-
-		sums.forEach((sum, index) => {
+	}
+	
+	// Recalculates centroid positions by averaging the coordinates of the points in each cluster
+	function recalculateCentroids(centroidSums) {
+		centroidSums.forEach((sum, index) => {
 			if (sum.count > 0) {
 				centroids[index].x = sum.x / sum.count;
 				centroids[index].y = sum.y / sum.count;
 			}
 		});
 	}
+	
 
 	function isConverged() {
 		return centroids.every((centroid, index) => {
@@ -213,27 +249,29 @@ document.addEventListener('DOMContentLoaded', () => {
 	function drawPlot() {
 		plotArea.innerHTML = '';
 		dataset.forEach((point, index) => {
-			const dot = document.createElement('div');
-			dot.style.position = 'absolute';
-			dot.style.width = '5px';
-			dot.style.height = '5px';
-			dot.style.backgroundColor = assignments[index] !== undefined ? `hsl(${assignments[index] * 360 / centroids.length}, 100%, 50%)` : 'black';
-			dot.style.borderRadius = '50%';
-			dot.style.left = `${point.x}px`;
-			dot.style.top = `${point.y}px`;
+			const dot = createDot(point.x, point.y, assignments[index] !== undefined ? `hsl(${assignments[index] * 360 / centroids.length}, 100%, 50%)` : 'black');
 			plotArea.appendChild(dot);
 		});
 		centroids.forEach(centroid => {
-			const center = document.createElement('div');
-			center.style.position = 'absolute';
-			center.style.width = '10px';
-			center.style.height = '10px';
-			center.style.backgroundColor = 'red';
-			center.style.borderRadius = '50%';
-			center.style.left = `${centroid.x}px`;
-			center.style.top = `${centroid.y}px`;
+			const center = createDot(centroid.x, centroid.y, 'red', '10px');
 			plotArea.appendChild(center);
 		});
+	}
+
+	function createDot(x, y, color, size = '5px') {
+		const dot = document.createElement('div');
+		dot.style.position = 'absolute';
+		dot.style.width = size;
+		dot.style.height = size;
+		dot.style.backgroundColor = color;
+		dot.style.borderRadius = '50%';
+		dot.style.left = `${x}px`;
+		dot.style.top = `${y}px`;
+		return dot;
+	}
+
+	function calculateDistance(point1, point2) {
+		return Math.hypot(point1.x - point2.x, point1.y - point2.y);
 	}
 
 	drawPlot();
