@@ -3,90 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KMeans Clustering</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <title>KMeans Clustering Algorithm</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
-    <h1>KMeans Clustering Visualization</h1>
-    <div class="controls">
-      <label for="clusters">Number of Clusters (k):</label>
-      <input type="number" id="clusters" value="2" min="1">
-  </div>
+    <h1>KMeans Clustering Algorithm</h1>
     <div id="controls">
-        <label for="initMethod">Initialization Method:</label>
-        <select id="initMethod">
+        <label for="num-clusters">Number of Clusters (k):</label>
+        <input type="number" id="num-clusters" value="3" min="1" max="10">
+        
+        <label for="init-method">Initialization Method:</label>
+        <select id="init-method">
             <option value="random">Random</option>
-            <option value="farthest_first">Farthest First</option>
+            <option value="farthest">Farthest First</option>
             <option value="kmeans++">KMeans++</option>
             <option value="manual">Manual</option>
         </select>
-        <button id="generateDataset">Generate Dataset</button>
-        <button id="step">Step</button>
-        <button id="converge">Converge</button>
-        <button id="reset">Reset</button>
+        
+        <button id="step">Step Through KMeans</button>
+        <button id="converge">Run to Convergence</button>
+        <button id="new-dataset">Generate New Dataset</button>
+        <button id="reset">Reset Algorithm</button>
     </div>
-    <div id="plot" style="width:100%;height:500px;"></div>
-    <script>
-        let data = generateRandomDataset();
-        let centroids = [];
-        let method = 'random';
-
-        document.getElementById('initMethod').onchange = (event) => {
-            method = event.target.value;
-        };
-
-        document.getElementById('generateDataset').onclick = () => {
-            data = generateRandomDataset();
-            centroids = [];
-            updatePlot();
-        };
-
-        document.getElementById('step').onclick = () => {
-            // Call backend or JS logic for one step of KMeans
-        };
-
-        document.getElementById('converge').onclick = () => {
-            // Call backend or JS logic for running to convergence
-        };
-
-        document.getElementById('reset').onclick = () => {
-            centroids = [];
-            updatePlot();
-        };
-
-        // Function to update the Plotly graph
-        function updatePlot() {
-            let trace = {
-                x: data.map(d => d[0]),
-                y: data.map(d => d[1]),
-                mode: 'markers',
-                marker: { size: 8 }
-            };
-            
-            let layout = {
-                title: 'KMeans Clustering with Negative Values',
-                xaxis: { title: 'X-Axis', range: [-1, 1] },
-                yaxis: { title: 'Y-Axis', range: [-1, 1] },
-                showlegend: false
-            };
-            
-            Plotly.newPlot('plot', [trace], layout);
-        }
-
-        // Generate random dataset with values between -1 and 1
-        function generateRandomDataset() {
-            let dataset = [];
-            for (let i = 0; i < 500; i++) {
-                let x = Math.random() * 2 - 1; // Generates a value between -1 and 1
-                let y = Math.random() * 2 - 1; // Generates a value between -1 and 1
-                dataset.push([x, y]);
-            }
-            return dataset;
-        }
-
-        // Initial plot
-        updatePlot();
-    </script>
+    <div id="plot-area"></div>
+    <script src="{{ url_for('static', filename='main.js') }}"></script>
 </body>
 </html>
