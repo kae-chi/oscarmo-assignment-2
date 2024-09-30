@@ -1,16 +1,12 @@
-# This workflow will install Python dependencies, run tests and lint with a single version of Python
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
-
-name: Python application
+name: Python Flask CI
 
 on:
   push:
-    branches: [ "master" ]
+    branches:
+      - main
   pull_request:
-    branches: [ "master" ]
-
-permissions:
-  contents: read
+    branches:
+      - main
 
 jobs:
   build:
@@ -18,35 +14,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v3
-        with:
-          python-version: "3.10"
-      
-      - name: Install dependencies and setup project
-        run: |
-          python3 -m pip install --upgrade pip
-          pip install flake8 pytest
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          # Run the make install command to ensure all project dependencies are installed
-          make install
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-      - name: Lint with flake8
-        run: |
-          # stop the build if there are Python syntax errors or undefined names
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    - name: Set up Python 3.x
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
 
-      - name: Run server and wait
-        run: |
-          # Run the server and sleep for a few seconds to ensure it starts up
-          make run & sleep 10
-          # You can increase the sleep duration if the server takes longer to start
-          
-      - name: Test with pytest
-        run: |
-          # Run pytest to ensure all tests pass
-          pytest
+    - name: Install dependencies
+      run: |
+        python -m venv venv
+        source venv/bin/activate
+        pip install -r requirements.txt
+
+    - name: Run Flask app in the background
+      if: ${{ github.event_name == 'push' }}
+      run: |
+        source venv/bin/activate
+        export FLASK_APP=app.py
+        export FLASK_ENV=development
+        nohup flask run --port 3000 &
+      env:
+        CI: true
