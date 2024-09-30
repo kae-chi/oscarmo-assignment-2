@@ -27,7 +27,7 @@ jobs:
       
       - name: Install dependencies and setup project
         run: |
-          python -m pip install --upgrade pip
+          python3 -m pip install --upgrade pip
           pip install flake8 pytest
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           # Run the make install command to ensure all project dependencies are installed
